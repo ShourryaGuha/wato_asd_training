@@ -5,6 +5,14 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
+# Robust APT in this stage (before any apt-get)
+RUN set -eux; \
+  printf 'Acquire::Retries "6";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::ForceIPv4 "true";\n' \
+    >/etc/apt/apt.conf.d/99-robust-apt; \
+  sed -i 's|http://archive.ubuntu.com/ubuntu|mirror://mirrors.ubuntu.com/mirrors.txt|g' /etc/apt/sources.list; \
+  sed -i 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list; \
+  apt-get update
+
 # Copy in source code 
 COPY src/wato_msgs wato_msgs
 
@@ -18,21 +26,37 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
 
-# Install Foxglove Deps
-RUN apt-get update && apt-get install -y curl ros-humble-ros2bag ros-humble-rosbag2* ros-humble-foxglove-msgs&& \
-    rm -rf /var/lib/apt/lists/*
+# Robust APT in this stage (before any apt-get)
+RUN set -eux; \
+  printf 'Acquire::Retries "6";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::ForceIPv4 "true";\n' \
+    >/etc/apt/apt.conf.d/99-robust-apt; \
+  sed -i 's|http://archive.ubuntu.com/ubuntu|mirror://mirrors.ubuntu.com/mirrors.txt|g' /etc/apt/sources.list; \
+  sed -i 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list; \
+  apt-get update
 
-# Set up apt repo
-RUN apt-get update && apt-get install -y lsb-release software-properties-common apt-transport-https && \
-    apt-add-repository universe
+# Install Foxglove deps
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      curl \
+      ros-humble-ros2bag \
+      "ros-humble-rosbag2*" \
+      ros-humble-foxglove-msgs \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install Dependencies
-RUN apt-get update && \
-    apt-get install -y \ 
-    ros-$ROS_DISTRO-foxglove-bridge \
-    ros-$ROS_DISTRO-rosbridge-server \
-    ros-$ROS_DISTRO-topic-tools \
-    ros-$ROS_DISTRO-vision-msgs
+# Set up apt repo (universe et al.)
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       lsb-release software-properties-common apt-transport-https \
+  && apt-add-repository universe \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install additional ROS dependencies
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       ros-$ROS_DISTRO-foxglove-bridge \
+       ros-$ROS_DISTRO-rosbridge-server \
+       ros-$ROS_DISTRO-topic-tools \
+       ros-$ROS_DISTRO-vision-msgs \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list

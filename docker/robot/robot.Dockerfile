@@ -5,6 +5,14 @@ FROM ${BASE_IMAGE} AS source
 
 WORKDIR ${AMENT_WS}/src
 
+# Harden APT in this stage
+RUN set -eux; \
+  printf 'Acquire::Retries "6";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::ForceIPv4 "true";\n' \
+    >/etc/apt/apt.conf.d/99-robust-apt; \
+  sed -i 's|http://archive.ubuntu.com/ubuntu|mirror://mirrors.ubuntu.com/mirrors.txt|g' /etc/apt/sources.list; \
+  sed -i 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list; \
+  apt-get update
+
 # Copy in source code 
 COPY src/robot/odometry_spoof odometry_spoof
 COPY src/robot/costmap costmap
@@ -22,6 +30,14 @@ RUN apt-get -qq update && rosdep update && \
 
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
+
+# Harden APT in this stage
+RUN set -eux; \
+  printf 'Acquire::Retries "6";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::ForceIPv4 "true";\n' \
+    >/etc/apt/apt.conf.d/99-robust-apt; \
+  sed -i 's|http://archive.ubuntu.com/ubuntu|mirror://mirrors.ubuntu.com/mirrors.txt|g' /etc/apt/sources.list; \
+  sed -i 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list; \
+  apt-get update
 
 # ADD MORE DEPENDENCIES HERE
 

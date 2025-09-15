@@ -18,15 +18,43 @@ RUN apt-get -qq update && rosdep update && \
 ################################# Dependencies ################################
 FROM ${BASE_IMAGE} AS dependencies
 
-# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
-RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 -y
+# # RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
+# RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 -y
 
-RUN apt install -y lsb-release wget gnupg
-RUN wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
-RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
-RUN apt-get -y update
-RUN apt-get -y install ros-${ROS_DISTRO}-ros-gz ignition-fortress
-RUN echo $GAZEBO_PLUGIN_PATH=/opt/ros/humble/lib
+# RUN apt install -y lsb-release wget gnupg
+# RUN wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+# RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+# RUN apt-get -y update
+# RUN apt-get -y install ros-${ROS_DISTRO}-ros-gz ignition-fortress
+# RUN echo $GAZEBO_PLUGIN_PATH=/opt/ros/humble/lib
+################################# Dependencies ################################
+
+# Fix APT mirrors + retries before any installs
+RUN set -eux; \
+    printf 'Acquire::Retries "6";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::ForceIPv4 "true";\n' \
+      >/etc/apt/apt.conf.d/99-robust-apt; \
+    sed -i 's|http://archive.ubuntu.com/ubuntu|mirror://mirrors.ubuntu.com/mirrors.txt|g' /etc/apt/sources.list; \
+    sed -i 's|http://security.ubuntu.com/ubuntu|https://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list; \
+    apt-get update
+
+# Install basics
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ffmpeg libsm6 libxext6 lsb-release wget gnupg && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add OSRF Gazebo repo and install ros-gz + ignition
+RUN set -eux; \
+    wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/gazebo-stable.list; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ros-${ROS_DISTRO}-ros-gz ignition-fortress; \
+    rm -rf /var/lib/apt/lists/*
+
+# Make the env var persistent (the old RUN echo didn't persist)
+ENV GAZEBO_PLUGIN_PATH=/opt/ros/humble/lib
+
 
 # Install Rosdep requirements
 COPY --from=source /tmp/colcon_install_list /tmp/colcon_install_list
