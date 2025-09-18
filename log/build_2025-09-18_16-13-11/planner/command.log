@@ -1,0 +1,6 @@
+Invoking command in '/ws/build/planner': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /ws/src/robot/planner -DCMAKE_INSTALL_PREFIX=/ws/install/planner
+Invoked command in '/ws/build/planner' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /ws/src/robot/planner -DCMAKE_INSTALL_PREFIX=/ws/install/planner
+Invoking command in '/ws/build/planner': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /ws/build/planner -- -j8 -l8
+Invoked command in '/ws/build/planner' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /ws/build/planner -- -j8 -l8
+Invoking command in '/ws/build/planner': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /ws/build/planner
+Invoked command in '/ws/build/planner' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /ws/build/planner
