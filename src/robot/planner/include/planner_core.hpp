@@ -59,9 +59,35 @@ class PlannerCore {
     explicit PlannerCore(const rclcpp::Logger& logger);
 
     // config map + planning behaviour
+    void setMap(const nav_msgs::msg::OccupancyGrid &map,
+              int occ_threshold = 50,
+              bool unknown_as_free = true,
+              bool use_8_connected = true);
+
+    std::vector<geometry_msgs::msg::PoseStamped> plan(double start_x, double start_y,
+                                                     double goal_x, double goal_y);
+
+    std::optional<CellIndex> worldToMap(double wx, double wy) const;
+    geometry_msgs::msg::PoseStamped mapToWorldPose(const CellIndex &c) const;
 
   private:
+    // map settings
+    nav_msgs::msg::OccupancyGrid map_;
+    bool has_map_{false};
+    int occ_threshold_{50};
+    bool unknown_free_{true};
+    bool use_8_{true};
     rclcpp::Logger logger_;
+
+    // helpers
+    bool inBounds(const CellIndex &c) const;
+    bool isFree(const CellIndex &c) const;
+    int index(const CellIndex &c) const { return c.y * static_cast<int>(map_.info.width) + c.x; }
+    double heuristic(const CellIndex &a, const CellIndex &b) const; // Euclidean
+    std::vector<CellIndex> neighbors(const CellIndex &c) const;
+    std::vector<geometry_msgs::msg::PoseStamped> reconstructPath(
+        const std::unordered_map<CellIndex, CellIndex, CellIndexHash> &came_from,
+        const CellIndex &start, const CellIndex &goal) const;
 };
 
 }  
