@@ -31,12 +31,14 @@ class CostmapNode : public rclcpp::Node {
     rclcpp::TimerBase::SharedPtr timer_;
 
     // costmap dimensions
-    const int costmap_width_{30};
-    const int costmap_height_{30};
+    const int map_width_{30};
+    const int map_height_{30};
     float costmap_resolution_{0.1}; // meters per cell
     double origin_x_{0.0};
     double origin_y_{0.0};
     std::vector<std::vector<int>> costmap_2D;
+    int costmap_width;
+    int costmap_height;
 
     // costmap publish message
     nav_msgs::msg::OccupancyGrid costmap_msg_;

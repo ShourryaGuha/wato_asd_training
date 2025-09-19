@@ -6,7 +6,7 @@
 
 CostmapNode::CostmapNode() : Node("costmap"),
                              costmap_(robot::CostmapCore(this->get_logger())),
-                             costmap_2D(costmap_width_, std::vector<int>(costmap_height_, 0))
+                             costmap_2D(map_width_, std::vector<int>(map_height_, 0))
 {
   // Initialize publishers
   string_pub_ = this->create_publisher<std_msgs::msg::String>("/test_topic", 10);
@@ -34,27 +34,25 @@ void CostmapNode::publishMessage()
 void CostmapNode::initializeCostmap()
 {
   // use resolution and dimensions to calculate 2D array size
-  int width_2d = (int)(costmap_width_ / costmap_resolution_);
-  int height_2d = (int)(costmap_height_ / costmap_resolution_);
+  int costmap_width = (int)(map_width_ / costmap_resolution_);
+  int costmap_height = (int)(map_height_ / costmap_resolution_);
 
   // initialize costmap message static parts
   costmap_msg_.info.resolution = costmap_resolution_; // meters per cell
-  costmap_msg_.info.width = width_2d;
-  costmap_msg_.info.height = height_2d;
-  costmap_msg_.info.origin.position.x = origin_x_;
-  costmap_msg_.info.origin.position.y = origin_y_;
+  costmap_msg_.info.width = costmap_width;
+  costmap_msg_.info.height = costmap_height;
 
   // Resize the 2D vector to the specified dimensions
-  costmap_2D.resize(costmap_height_);
-  for (int i = 0; i < costmap_height_; i++)
+  costmap_2D.resize(costmap_height);
+  for (int i = 0; i < costmap_height; i++)
   {
-    costmap_2D[i].resize(costmap_width_);
+    costmap_2D[i].resize(costmap_width);
   }
 
   // Initialize all cells to 0 (free space)
-  for (int i = 0; i < costmap_height_; i++)
+  for (int i = 0; i < costmap_height; i++)
   {
-    for (int j = 0; j < costmap_width_; j++)
+    for (int j = 0; j < costmap_width; j++)
     {
       costmap_2D[i][j] = 0;
     }
@@ -76,9 +74,13 @@ void CostmapNode::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr sca
     if (range < scan->range_max && range > scan->range_min)
     {
       // Calculate grid coordinates
-      int x_grid, y_grid;
-      // convertToGrid(range, angle, x_grid, y_grid);
-      // markObstacle(x_grid, y_grid);
+      float x_grid_sensor_frame, y_grid_sensor_frame;
+      costmap_.convertToGrid(range, angle, x_grid_sensor_frame, y_grid_sensor_frame);
+
+      int x_grid = static_cast<int>(x_grid_sensor_frame / costmap_resolution_ + (costmap_width / 2));
+      int y_grid = static_cast<int>(y_grid_sensor_frame / costmap_resolution_ + (costmap_height / 2));
+
+      costmap_.markObstacle(costmap_2D, x_grid, y_grid);
     }
   }
 
