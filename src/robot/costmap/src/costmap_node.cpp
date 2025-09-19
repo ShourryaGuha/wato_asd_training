@@ -19,7 +19,7 @@ CostmapNode::CostmapNode() : Node("costmap"),
   // Initialize timer
   timer_ = this->create_wall_timer(std::chrono::milliseconds(500), std::bind(&CostmapNode::publishMessage, this));
 
-  initializeCostmap(costmap_width_, costmap_height_);
+  initializeCostmap();
 }
 
 // Define the timer to publish a message every 500ms
@@ -31,27 +31,30 @@ void CostmapNode::publishMessage()
   string_pub_->publish(message);
 }
 
-void CostmapNode::initializeCostmap(int costmap_width, int costmap_height)
+void CostmapNode::initializeCostmap()
 {
-
-  float costmap_resolution = 0.1; // meters per cell
-
-
   // use resolution and dimensions to calculate 2D array size
-  int width_2d = (int)(costmap_width_ / costmap_resolution);
-  int height_2d = (int)(costmap_height_ / costmap_resolution);
+  int width_2d = (int)(costmap_width_ / costmap_resolution_);
+  int height_2d = (int)(costmap_height_ / costmap_resolution_);
+
+  // initialize costmap message static parts
+  costmap_msg_.info.resolution = costmap_resolution_; // meters per cell
+  costmap_msg_.info.width = width_2d;
+  costmap_msg_.info.height = height_2d;
+  costmap_msg_.info.origin.position.x = origin_x_;
+  costmap_msg_.info.origin.position.y = origin_y_;
 
   // Resize the 2D vector to the specified dimensions
-  costmap_2D.resize(costmap_height);
-  for (int i = 0; i < costmap_height; i++)
+  costmap_2D.resize(costmap_height_);
+  for (int i = 0; i < costmap_height_; i++)
   {
-    costmap_2D[i].resize(costmap_width);
+    costmap_2D[i].resize(costmap_width_);
   }
 
   // Initialize all cells to 0 (free space)
-  for (int i = 0; i < costmap_height; i++)
+  for (int i = 0; i < costmap_height_; i++)
   {
-    for (int j = 0; j < costmap_width; j++)
+    for (int j = 0; j < costmap_width_; j++)
     {
       costmap_2D[i][j] = 0;
     }
@@ -63,15 +66,7 @@ void CostmapNode::initializeCostmap(int costmap_width, int costmap_height)
 // Callback function for lidar data
 void CostmapNode::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
 {
-  // Step 1: Initialize costmap
-
-  float costmap_resolution = 0.1; // meters per cell
-
-  // use resolution and dimensions to calculate 2D array size
-  int width_2d = (int)(costmap_width_ / costmap_resolution);
-  int height_2d = (int)(costmap_height_ / costmap_resolution);
-
-  costmap_.initializeCostmap(costmap_2D, width_2d, height_2d);
+  // Step 1: Initialize costmap done in constructor
 
   // Step 2: Convert LaserScan to grid and mark obstacles
   for (size_t i = 0; i < scan->ranges.size(); ++i)
