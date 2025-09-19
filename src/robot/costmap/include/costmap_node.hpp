@@ -37,8 +37,8 @@ class CostmapNode : public rclcpp::Node {
     const int map_height_{30};
     float costmap_resolution_{0.1}; // meters per cell
     int inflation_radius_{1}; // in metres
-    double origin_x_{0.0};
-    double origin_y_{0.0};
+    double origin_x_{-15.0};  // -map_width_/2 to center the robot
+    double origin_y_{-15.0};  // -map_height_/2 to center the robot
     std::vector<std::vector<int>> costmap_2D;
     int costmap_width;
     int costmap_height;

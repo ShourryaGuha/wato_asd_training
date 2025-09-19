@@ -42,6 +42,11 @@ void CostmapNode::initializeCostmap()
   costmap_msg_.info.resolution = costmap_resolution_; // meters per cell
   costmap_msg_.info.width = costmap_width;
   costmap_msg_.info.height = costmap_height;
+  
+  // Set the origin - position of the (0,0) cell in world coordinates
+  // For a robot-centered map, place origin so robot is in the center
+  costmap_msg_.info.origin.position.x = origin_x_;  
+  costmap_msg_.info.origin.position.y = origin_y_;  
 
   // Resize the 2D vector to the specified dimensions
   costmap_2D.resize(costmap_height);
@@ -75,7 +80,7 @@ void CostmapNode::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr sca
     if (range < scan->range_max && range > scan->range_min)
     {
       // Calculate grid coordinates
-      float x_grid_sensor_frame, y_grid_sensor_frame;
+      float x_grid_sensor_frame, y_grid_sensor_frame;  // in metres
       costmap_.convertToGrid(range, angle, x_grid_sensor_frame, y_grid_sensor_frame);
 
       int x_grid = static_cast<int>(x_grid_sensor_frame / costmap_resolution_ + (costmap_width / 2));
@@ -95,39 +100,61 @@ void CostmapNode::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr sca
 
 void CostmapNode::inflateObstacles() {
   int inflation_radius_cells = inflation_radius_ / costmap_resolution_;
+  
+  // Create a copy of the original costmap to avoid modifying during iteration
+  std::vector<std::vector<int>> original_costmap = costmap_2D;
 
   for(int i = 0; i < costmap_height; i++)
   {
     for(int j = 0; j < costmap_width; j++)
     {
-      // Placeholder for obstacle inflation logic
-      if(costmap_2D[i][j] == 100) // assuming 100 represents an obstacle
+      // Check if this cell is an obstacle (100 = occupied)
+      if(original_costmap[i][j] == 100) 
       {
-        // Inflate logic here, e.g., mark neighboring cells
-        for(int y = -1*inflation_radius_cells; y <= inflation_radius_cells; y++) {
-          for(int x = -1*inflation_radius_cells; x <= inflation_radius_cells; x++) {
+        // Inflate around this obstacle
+        for(int dy = -inflation_radius_cells; dy <= inflation_radius_cells; dy++) {
+          for(int dx = -inflation_radius_cells; dx <= inflation_radius_cells; dx++) {
+            
+            // Calculate neighboring cell coordinates
+            int nx = j + dx;  // j is x-coordinate (column)
+            int ny = i + dy;  // i is y-coordinate (row)
 
-            // neighbouring cells
-            int nx = j + x;
-            int ny = i + y;
-
-            if (nx >= 0 && nx < map_width_ && ny>=0 && ny <map_height_) {
-              float euc_dist = std::sqrt((x*x + y*y));
-              int new_cost = 100 * (1 - euc_dist/inflation_radius_cells);
-              costmap_2D[nx][ny] = (new_cost > costmap_2D[nx][ny]) ? new_cost : costmap_2D[nx][ny];
-            }
-            else {
-              continue;
+            // Check bounds
+            if (nx >= 0 && nx < costmap_width && ny >= 0 && ny < costmap_height) {
+              
+              // Calculate Euclidean distance in cells
+              float cell_distance = std::sqrt(dx*dx + dy*dy);
+              
+              // Only inflate within the radius
+              if (cell_distance <= inflation_radius_cells) {
+                
+                // Calculate cost based on distance (closer = higher cost)
+                // Cost decreases linearly from 99 at obstacle to ~20 at radius edge
+                int inflation_cost;
+                if (cell_distance == 0) {
+                  inflation_cost = 100; // Keep obstacle at 100
+                } else {
+                  // Linear decrease: 99 at distance 1 to ~20 at max radius
+                  inflation_cost = 99 - (int)((cell_distance / inflation_radius_cells) * 79);
+                  inflation_cost = std::max(inflation_cost, 20); // Minimum inflation cost
+                }
+                
+                // Only update if current cost is lower (don't overwrite obstacles or higher costs)
+                if (costmap_2D[ny][nx] < inflation_cost) {
+                  costmap_2D[ny][nx] = inflation_cost;
+                }
+              }
             }
           }
         }
       }
-      else {
-        continue;
-      }
     }
   }
+  
+  RCLCPP_INFO(this->get_logger(), "Obstacle inflation completed with radius: %d cells (%.1fm)", 
+              inflation_radius_cells, inflation_radius_);
 }
+
 
 void CostmapNode::publishCostmap() {
   costmap_msg_.data.resize(costmap_height * costmap_width);
