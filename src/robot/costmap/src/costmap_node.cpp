@@ -3,6 +3,7 @@
 
 #include "costmap_node.hpp"
 #include "costmap_core.hpp"
+#include <cmath>
 
 CostmapNode::CostmapNode() : Node("costmap"),
                              costmap_(robot::CostmapCore(this->get_logger())),
@@ -34,8 +35,8 @@ void CostmapNode::publishMessage()
 void CostmapNode::initializeCostmap()
 {
   // use resolution and dimensions to calculate 2D array size
-  int costmap_width = (int)(map_width_ / costmap_resolution_);
-  int costmap_height = (int)(map_height_ / costmap_resolution_);
+  costmap_width = (int)(map_width_ / costmap_resolution_);
+  costmap_height = (int)(map_height_ / costmap_resolution_);
 
   // initialize costmap message static parts
   costmap_msg_.info.resolution = costmap_resolution_; // meters per cell
@@ -85,10 +86,60 @@ void CostmapNode::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr sca
   }
 
   // Step 3: Inflate obstacles
-  // inflateObstacles();
+  inflateObstacles();
 
   // Step 4: Publish costmap
-  // publishCostmap();
+
+  publishCostmap();
+}
+
+void CostmapNode::inflateObstacles() {
+  int inflation_radius_cells = inflation_radius_ / costmap_resolution_;
+
+  for(int i = 0; i < costmap_height; i++)
+  {
+    for(int j = 0; j < costmap_width; j++)
+    {
+      // Placeholder for obstacle inflation logic
+      if(costmap_2D[i][j] == 100) // assuming 100 represents an obstacle
+      {
+        // Inflate logic here, e.g., mark neighboring cells
+        for(int y = -1*inflation_radius_cells; y <= inflation_radius_cells; y++) {
+          for(int x = -1*inflation_radius_cells; x <= inflation_radius_cells; x++) {
+
+            // neighbouring cells
+            int nx = j + x;
+            int ny = i + y;
+
+            if (nx >= 0 && nx < map_width_ && ny>=0 && ny <map_height_) {
+              float euc_dist = std::sqrt((x*x + y*y));
+              int new_cost = 100 * (1 - euc_dist/inflation_radius_cells);
+              costmap_2D[nx][ny] = (new_cost > costmap_2D[nx][ny]) ? new_cost : costmap_2D[nx][ny];
+            }
+            else {
+              continue;
+            }
+          }
+        }
+      }
+      else {
+        continue;
+      }
+    }
+  }
+}
+
+void CostmapNode::publishCostmap() {
+  costmap_msg_.data.resize(costmap_height * costmap_width);
+  for (int y = 0; y < costmap_height; ++y) {
+    for (int x = 0; x < costmap_width; ++x) {
+      costmap_msg_.data[y * costmap_width + x] = costmap_2D[y][x];
+    }
+        
+  }
+  costmap_msg_.header.stamp = this->now();
+  costmap_msg_.header.frame_id = "map";
+  costmap_pub_->publish(costmap_msg_);
 }
 
 int main(int argc, char **argv)

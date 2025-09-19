@@ -16,6 +16,8 @@ class CostmapNode : public rclcpp::Node {
     void publishMessage();
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan);
     void initializeCostmap();
+    void inflateObstacles();
+    void publishCostmap();
  
   private:
     robot::CostmapCore costmap_;
@@ -34,6 +36,7 @@ class CostmapNode : public rclcpp::Node {
     const int map_width_{30};
     const int map_height_{30};
     float costmap_resolution_{0.1}; // meters per cell
+    int inflation_radius_{1}; // in metres
     double origin_x_{0.0};
     double origin_y_{0.0};
     std::vector<std::vector<int>> costmap_2D;

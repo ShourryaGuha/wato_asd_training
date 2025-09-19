@@ -3,6 +3,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include <vector>
+#include <cmath>
 
 namespace robot
 {

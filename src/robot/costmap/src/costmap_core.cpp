@@ -1,13 +1,14 @@
 #include "costmap_core.hpp"
 
+
 namespace robot
 {
 
     CostmapCore::CostmapCore(const rclcpp::Logger &logger) : logger_(logger) {}
 
     void CostmapCore::convertToGrid(float range, float angle, float& x_grid, float& y_grid) {
-        x_grid = range * cos(angle);
-        y_grid = range * sin(angle);
+        x_grid = range * std::cos(angle);
+        y_grid = range * std::sin(angle);
     }
 
     void CostmapCore::markObstacle(std::vector<std::vector<int>>& costmap_2D, int x_grid, int y_grid) {
