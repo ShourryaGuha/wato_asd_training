@@ -26,6 +26,9 @@ MapMemoryNode::MapMemoryNode() : Node("map_memory"), map_memory_(robot::MapMemor
 void MapMemoryNode::costmapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
     latest_costmap_ = *msg; // store the latest costmap
     have_latest_costmap_ = true; // set the flag to true
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, 
+                        "Received costmap: %dx%d, resolution: %.3f", 
+                        msg->info.width, msg->info.height, msg->info.resolution);
 }
 
 void MapMemoryNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
@@ -38,19 +41,44 @@ void MapMemoryNode::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     double cosy_cosp = 1.0 - 2.0 * (msg->pose.pose.orientation.y * msg->pose.pose.orientation.y + 
                                     msg->pose.pose.orientation.z * msg->pose.pose.orientation.z);
     current_yaw_ = std::atan2(siny_cosp, cosy_cosp); // update current yaw
+    
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, 
+                        "Robot pose: x=%.2f, y=%.2f, yaw=%.2f", 
+                        current_x_, current_y_, current_yaw_);
+    
     if(!anchor_set_){
         markUpdateAnchorToCurrentPose();
         anchor_set_ = true;
+        RCLCPP_INFO(this->get_logger(), "Anchor set to initial position: x=%.2f, y=%.2f", 
+                   current_x_, current_y_);
     }
 }
 
 void MapMemoryNode::timerCallback() {
   if (!have_latest_costmap_ || !anchor_set_) {
+    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, 
+                        "Waiting for data: costmap=%s, anchor=%s", 
+                        have_latest_costmap_ ? "✓" : "✗", 
+                        anchor_set_ ? "✓" : "✗");
     return;
   }
 
-  if (!movedEnoughSinceLastUpdate()) {
+  double distance = sqrt(pow(last_update_x_ - current_x_, 2) + pow(last_update_y_ - current_y_, 2));
+  
+  // Publish first map immediately, then check distance threshold for subsequent updates
+  bool should_publish = !first_map_published_ || movedEnoughSinceLastUpdate();
+  
+  if (!should_publish) {
+    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 5000, 
+                        "Not moved enough: distance=%.3f, threshold=%.3f", 
+                        distance, distance_threshold_m_);
     return;
+  }
+
+  if (!first_map_published_) {
+    RCLCPP_INFO(this->get_logger(), "Publishing initial map");
+  } else {
+    RCLCPP_INFO(this->get_logger(), "Fusing costmap and publishing map (moved %.3f m)", distance);
   }
 
   // 1) Fuse latest local costmap into the core's global map
@@ -63,8 +91,11 @@ void MapMemoryNode::timerCallback() {
   out.header.frame_id = "map";         // Set consistent frame_id
   map_pub_->publish(out);
 
-  // 3) Move the anchor to current pose
+  RCLCPP_INFO(this->get_logger(), "Published global map: %dx%d", out.info.width, out.info.height);
+
+  // 3) Move the anchor to current pose and mark first map as published
   markUpdateAnchorToCurrentPose();
+  first_map_published_ = true;
 }
 
 
@@ -82,13 +113,16 @@ void MapMemoryNode::markUpdateAnchorToCurrentPose() {
 }
 
 void MapMemoryNode::declareAndGetParameters() {
-    this->declare_parameter("distance_threshold_m", 1.5);
+    this->declare_parameter("distance_threshold_m", 1.5);  // Keep onboarding requirement of 1.5m
     this->get_parameter("distance_threshold_m", distance_threshold_m_);
 
     int update_period_ms = 1000;
     this->declare_parameter("update_period_ms", update_period_ms);
     this->get_parameter("update_period_ms", update_period_ms);
     update_period_ = std::chrono::milliseconds(update_period_ms);
+    
+    RCLCPP_INFO(this->get_logger(), "Parameters: distance_threshold=%.2f m, update_period=%d ms", 
+               distance_threshold_m_, update_period_ms);
 }
 
 int main(int argc, char ** argv)

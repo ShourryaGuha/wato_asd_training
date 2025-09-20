@@ -32,6 +32,7 @@ private:
   nav_msgs::msg::OccupancyGrid latest_costmap_; // stores the latest local costmap received from the /costmap topic
   
   bool have_latest_costmap_{false}; // flag to indicate if we have received at least one costmap
+  bool first_map_published_{false}; // flag to indicate if we have published the initial map
 
   // Robot pose (from /odom/filtered)
   double current_x_{0.0};

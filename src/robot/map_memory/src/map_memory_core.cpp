@@ -25,14 +25,14 @@ void MapMemoryCore::fuseCostmap(const nav_msgs::msg::OccupancyGrid& costmap, dou
       int8_t costmap_value = costmap.data[costmap_index];
       if (costmap_value == -1) continue; // unknown in local costmap, skip
 
+      // Convert costmap cell coordinates to world coordinates
       double world_x = costmap.info.origin.position.x + (x + 0.5) * costmap.info.resolution;
       double world_y = costmap.info.origin.position.y + (y + 0.5) * costmap.info.resolution;
 
-      double rotated_x = cos(robot_yaw) * (world_x) - sin(robot_yaw) * (world_y);
-      double rotated_y = sin(robot_yaw) * (world_x) + cos(robot_yaw) * (world_y);
-
-      double global_x = rotated_x + robot_x;
-      double global_y = rotated_y + robot_y;
+      // Since both costmap and global map are in "map" frame, no rotation needed
+      // Just use the world coordinates directly
+      double global_x = world_x;
+      double global_y = world_y;
 
       int global_x_index = static_cast<int>((global_x - global_map_.info.origin.position.x) / global_map_.info.resolution);
       int global_y_index = static_cast<int>((global_y - global_map_.info.origin.position.y) / global_map_.info.resolution);
