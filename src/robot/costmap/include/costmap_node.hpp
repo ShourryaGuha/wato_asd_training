@@ -3,6 +3,8 @@
  
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
  
 #include "costmap_core.hpp"
  
@@ -12,12 +14,37 @@ class CostmapNode : public rclcpp::Node {
     
     // Place callback function here
     void publishMessage();
+    void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan);
+    void initializeCostmap();
+    void inflateObstacles();
+    void publishCostmap();
  
   private:
     robot::CostmapCore costmap_;
-    // Place these constructs here
+    
+    // Publishers
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr string_pub_;
+    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_pub_;
+    
+    // Subscribers
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr lidar_sub_;
+    
+    // Timer
     rclcpp::TimerBase::SharedPtr timer_;
+
+    // costmap dimensions
+    const int map_width_{30};
+    const int map_height_{30};
+    float costmap_resolution_{0.1}; // meters per cell
+    int inflation_radius_{1}; // in metres
+    double origin_x_{-15.0};  // -map_width_/2 to center the robot
+    double origin_y_{-15.0};  // -map_height_/2 to center the robot
+    std::vector<std::vector<int>> costmap_2D;
+    int costmap_width;
+    int costmap_height;
+
+    // costmap publish message
+    nav_msgs::msg::OccupancyGrid costmap_msg_;
 };
  
 #endif
