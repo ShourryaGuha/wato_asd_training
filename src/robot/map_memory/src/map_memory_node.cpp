@@ -60,6 +60,7 @@ void MapMemoryNode::timerCallback() {
   auto map = map_memory_.getGlobalMap();
   auto out = map;                      // copy so we can modify header
   out.header.stamp = this->now();
+  out.header.frame_id = "map";         // Set consistent frame_id
   map_pub_->publish(out);
 
   // 3) Move the anchor to current pose
