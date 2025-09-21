@@ -16,7 +16,7 @@ MapMemoryNode::MapMemoryNode() : Node("map_memory"), map_memory_(robot::MapMemor
         // timer_ = this->create_wall_timer(
         //     std::chrono::seconds(1), std::bind(&MapMemoryNode::updateMap, this));
         timer_ = this->create_wall_timer(
-          std::chrono::seconds(1), std::bind(&MapMemoryNode::timerCallback, this));
+          update_period_, std::bind(&MapMemoryNode::timerCallback, this));
 
         // Initialize publisher
         map_pub_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", 10);
@@ -99,7 +99,7 @@ void MapMemoryNode::timerCallback() {
 }
 
 
-// implementing the Helpers functions
+// implementing the Helper functions
 bool MapMemoryNode::movedEnoughSinceLastUpdate() const {
     double x = last_update_x_ - current_x_;
     double y = last_update_y_ - current_y_;
