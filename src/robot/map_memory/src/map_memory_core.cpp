@@ -12,69 +12,83 @@ MapMemoryCore::MapMemoryCore(const rclcpp::Logger& logger)
 
  
 
-void MapMemoryCore::fuseCostmap(const nav_msgs::msg::OccupancyGrid& costmap, double robot_x, double robot_y, double robot_yaw){
-  if(!global_map_initialized_){
+void MapMemoryCore::fuseCostmap(const nav_msgs::msg::OccupancyGrid& costmap,
+                                double robot_x, double robot_y, double robot_yaw) {
+  if (!global_map_initialized_) {
     initializeGlobalMap(costmap, robot_x, robot_y, robot_yaw);
     global_map_initialized_ = true;
     RCLCPP_INFO(logger_, "Global map initialized.");
     return;
   }
-  
+
+  const double res = costmap.info.resolution;
+  const double cox = costmap.info.origin.position.x;
+  const double coy = costmap.info.origin.position.y;
+
+  const double gx0 = global_map_.info.origin.position.x;
+  const double gy0 = global_map_.info.origin.position.y;
+  const double gres = global_map_.info.resolution;  // should match res
+
+  const int gW = static_cast<int>(global_map_.info.width);
+  const int gH = static_cast<int>(global_map_.info.height);
+
+  const double cY = std::cos(robot_yaw);
+  const double sY = std::sin(robot_yaw);
+
   int occupied_cells_fused = 0;
   int free_cells_fused = 0;
   int out_of_bounds_cells = 0;
   int unknown_cells_skipped = 0;
-  
-  RCLCPP_INFO(logger_, "Fusing costmap: robot at (%.2f, %.2f), costmap %dx%d, origin (%.2f, %.2f)", 
-             robot_x, robot_y, costmap.info.width, costmap.info.height,
-             costmap.info.origin.position.x, costmap.info.origin.position.y);
-  
-  for (size_t y = 0; y < costmap.info.height; ++y){
-    for (size_t x = 0; x < costmap.info.width; ++x){
-      int costmap_index = x + y * costmap.info.width;
-      int8_t costmap_value = costmap.data[costmap_index];
-      if (costmap_value == -1) {
-        unknown_cells_skipped++;
-        continue; // unknown in local costmap, skip
+
+  RCLCPP_INFO(logger_,
+              "Fusing costmap: robot(%.2f, %.2f, yaw=%.2f rad), size=%dx%d, res=%.3f, origin(%.2f, %.2f)",
+              robot_x, robot_y, robot_yaw,
+              costmap.info.width, costmap.info.height, res, cox, coy);
+
+  for (size_t y = 0; y < costmap.info.height; ++y) {
+    for (size_t x = 0; x < costmap.info.width; ++x) {
+      const int cidx = static_cast<int>(x + y * costmap.info.width);
+      const int8_t costmap_value = costmap.data[cidx];
+
+      // Skip unknown local cells per spec
+      if (costmap_value < 0) {
+        ++unknown_cells_skipped;
+        continue;
       }
 
-      // Convert costmap cell coordinates to world coordinates
-      double world_x = costmap.info.origin.position.x + (x + 0.5) * costmap.info.resolution;
-      double world_y = costmap.info.origin.position.y + (y + 0.5) * costmap.info.resolution;
+      // Cell center in local costmap frame
+      const double cx = cox + (static_cast<double>(x) + 0.5) * res;
+      const double cy = coy + (static_cast<double>(y) + 0.5) * res;
 
-      // Since both costmap and global map are in "map" frame, no rotation needed
-      // Just use the world coordinates directly
-      double global_x = world_x;
-      double global_y = world_y;
+      // Transform into global "map" frame using robot pose
+      const double wx = robot_x + (cx * cY - cy * sY);
+      const double wy = robot_y + (cx * sY + cy * cY);
 
-      int global_x_index = static_cast<int>((global_x - global_map_.info.origin.position.x) / global_map_.info.resolution);
-      int global_y_index = static_cast<int>((global_y - global_map_.info.origin.position.y) / global_map_.info.resolution);
+      // Index into global map
+      const int gi = static_cast<int>(std::floor((wx - gx0) / gres));
+      const int gj = static_cast<int>(std::floor((wy - gy0) / gres));
 
-      if (global_x_index < 0 || global_x_index >= static_cast<int>(global_map_.info.width) ||
-          global_y_index < 0 || global_y_index >= static_cast<int>(global_map_.info.height)) {
-        out_of_bounds_cells++;
-        continue; // out of bounds
+      if (gi < 0 || gi >= gW || gj < 0 || gj >= gH) {
+        ++out_of_bounds_cells;
+        continue;
       }
 
-      int global_index = global_x_index + global_y_index * global_map_.info.width;
-      int8_t& global_value = global_map_.data[global_index];
+      const int gidx = gi + gj * gW;
+      int8_t& gval = global_map_.data[gidx];
 
-      // Handle all costmap values (0-100) properly
-      if (costmap_value >= 0) {  // Any known value (0-100)
-        // Use maximum value fusion: keep the higher cost between existing and new
-        if (global_value == -1 || costmap_value > global_value) {
-          global_value = costmap_value;
-          if (costmap_value == 100) occupied_cells_fused++;
-          else if (costmap_value == 0) free_cells_fused++;
-        }
-      }
-      // If costmap_value is -1 (unknown), we already skip it above
+      // Linear fusion per assignment: overwrite when local is known (0..100)
+      gval = costmap_value;
+
+      if (costmap_value == 100)      ++occupied_cells_fused;
+      else if (costmap_value == 0)   ++free_cells_fused;
     }
   }
-  
-  RCLCPP_INFO(logger_, "Fusion complete: %d occupied, %d free, %d out-of-bounds, %d unknown skipped", 
-             occupied_cells_fused, free_cells_fused, out_of_bounds_cells, unknown_cells_skipped);
+
+  RCLCPP_INFO(logger_,
+              "Fusion complete: occupied=%d, free=%d, oob=%d, unknown_skipped=%d",
+              occupied_cells_fused, free_cells_fused, out_of_bounds_cells, unknown_cells_skipped);
 }
+
 
 const nav_msgs::msg::OccupancyGrid& MapMemoryCore::getGlobalMap() const {
   return global_map_;

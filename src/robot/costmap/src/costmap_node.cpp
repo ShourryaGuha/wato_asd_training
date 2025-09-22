@@ -155,7 +155,9 @@ void CostmapNode::publishCostmap()
     }
   }
   costmap_msg_.header.stamp = this->now();
-  costmap_msg_.header.frame_id = "map";
+  // costmap_msg_.header.frame_id = "base_link";
+  //costmap_msg_.header.frame_id = "map";
+  costmap_msg_.header.frame_id = "sim_world";
   costmap_pub_->publish(costmap_msg_);
 }
 

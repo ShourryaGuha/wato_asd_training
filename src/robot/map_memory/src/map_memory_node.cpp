@@ -88,7 +88,7 @@ void MapMemoryNode::timerCallback() {
   auto map = map_memory_.getGlobalMap();
   auto out = map;                      // copy so we can modify header
   out.header.stamp = this->now();
-  out.header.frame_id = "map";         // Set consistent frame_id
+  out.header.frame_id = "sim_world";         // Set consistent frame_id
   map_pub_->publish(out);
 
   RCLCPP_INFO(this->get_logger(), "Published global map: %dx%d", out.info.width, out.info.height);
