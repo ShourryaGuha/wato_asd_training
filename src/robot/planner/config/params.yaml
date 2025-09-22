@@ -1,3 +1,8 @@
-# planner_node:
-#   ros__parameters:
-    
+planner:
+  ros__parameters:
+    plan_period_ms: 500.0
+    goal_tolerance: 0.5
+    replan_timeout_s: 5.0
+    occ_threshold: 50
+    unknown_is_free: true
+    use_8_connected: true
