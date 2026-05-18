@@ -8,6 +8,8 @@
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "planner_core.hpp"
 
+#include <string>
+
 class PlannerNode : public rclcpp::Node {
   public:
     PlannerNode();
@@ -39,6 +41,7 @@ class PlannerNode : public rclcpp::Node {
     int occ_threshold_{50};
     bool unknown_is_free_{true};
     bool use_8_connected_{true};
+    std::string map_frame_{"sim_world"};
 
     // planner core
     robot::PlannerCore planner_;

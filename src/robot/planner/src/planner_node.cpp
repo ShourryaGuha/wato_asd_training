@@ -8,9 +8,10 @@ PlannerNode::PlannerNode() : Node("planner"), planner_{this->get_logger()} {
   plan_period_ms_ = this->declare_parameter<double>("plan_period_ms", 500.0);
   goal_tolerance_ = this->declare_parameter<double>("goal_tolerance", 0.5);
   replan_timeout_s_ = this->declare_parameter<double>("replan_timeout_s", 5.0);
-  occ_threshold_ = this->declare_parameter<int>("occ_threshold", 50);
-  unknown_is_free_ = this->declare_parameter<bool>("unknown_is_free", true);
+  occ_threshold_ = this->declare_parameter<int>("occ_threshold", 1);
+  unknown_is_free_ = this->declare_parameter<bool>("unknown_is_free", false);
   use_8_connected_ = this->declare_parameter<bool>("use_8_connected", true);
+  map_frame_ = this->declare_parameter<std::string>("map_frame", "sim_world");
 
   // subscriptions
   map_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
@@ -45,7 +46,16 @@ void PlannerNode::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
 
 void PlannerNode::goalCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg)
 {
+  const std::string goal_frame = msg->header.frame_id.empty() ? map_frame_ : msg->header.frame_id;
+  if (goal_frame != map_frame_) {
+    RCLCPP_WARN(this->get_logger(),
+                "Ignoring goal in frame '%s'; planner expects '%s'.",
+                goal_frame.c_str(), map_frame_.c_str());
+    return;
+  }
+
   goal_ = *msg;
+  goal_.header.frame_id = map_frame_;
   have_goal_ = true;
   state_ = State::WAITING_FOR_ROBOT_TO_REACH_GOAL;
   goal_start_time_ = this->now();
@@ -82,6 +92,7 @@ void PlannerNode::planPath()
 
   nav_msgs::msg::Path path;
   path.header.frame_id = "map";
+  path.header.frame_id = map_frame_;
   path.header.stamp = this->now();
   path.poses = std::move(poses);
 

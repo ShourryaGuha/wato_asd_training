@@ -1,6 +1,7 @@
 #include "planner_core.hpp"
 #include <limits>
 #include <algorithm>
+#include <optional>
 
 namespace robot
 {
@@ -18,6 +19,12 @@ void PlannerCore::setMap(const nav_msgs::msg::OccupancyGrid &map,
   occ_threshold_ = occ_threshold;
   unknown_free_  = unknown_as_free;
   use_8_         = use_8_connected;
+
+  const auto &q = map_.info.origin.orientation;
+  if (std::abs(q.x) > 1e-6 || std::abs(q.y) > 1e-6 || std::abs(q.z) > 1e-6 || std::abs(q.w - 1.0) > 1e-6) {
+    RCLCPP_WARN(logger_,
+                "PlannerCore expects an axis-aligned occupancy grid; map origin rotation is non-identity.");
+  }
 
   RCLCPP_DEBUG(logger_, "Map set: %ux%u res=%.3f origin(%.2f, %.2f)",
                map_.info.width, map_.info.height, map_.info.resolution,
