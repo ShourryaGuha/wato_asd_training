@@ -1,4 +1,4 @@
-planner:
+planner_node:
   ros__parameters:
     plan_period_ms: 500.0
     goal_tolerance: 0.5

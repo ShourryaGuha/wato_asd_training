@@ -2,6 +2,7 @@
 #define CONTROL_NODE_HPP_
 
 #include <optional>
+#include <cstddef>
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
@@ -26,17 +27,19 @@ class ControlNode : public rclcpp::Node {
 
     nav_msgs::msg::Path::SharedPtr current_path_;
     nav_msgs::msg::Odometry::SharedPtr current_odom_;
+    std::size_t target_index_{0};
 
     double lookahead_distance_{1.0};
     double goal_tolerance_{0.2};
     double linear_speed_{0.5};
     double control_period_ms_{100.0};
+    double max_angular_speed_{1.5};
 
     void pathCallback(const nav_msgs::msg::Path::SharedPtr msg);
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void controlLoop();
 
-    std::optional<geometry_msgs::msg::PoseStamped> findLookaheadPoint() const;
+    std::optional<geometry_msgs::msg::PoseStamped> findLookaheadPoint();
     geometry_msgs::msg::Twist computeVelocity(const geometry_msgs::msg::PoseStamped& target) const;
     double computeDistance(const geometry_msgs::msg::Point& a, const geometry_msgs::msg::Point& b) const;
     double extractYaw(const geometry_msgs::msg::Quaternion& quat) const;

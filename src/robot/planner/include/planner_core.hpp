@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <optional>
 #include <cmath>
+#include <string>
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -77,6 +78,7 @@ class PlannerCore {
     int occ_threshold_{50};
     bool unknown_free_{true};
     bool use_8_{true};
+    std::string map_frame_{"map"};
     rclcpp::Logger logger_;
 
     // helpers

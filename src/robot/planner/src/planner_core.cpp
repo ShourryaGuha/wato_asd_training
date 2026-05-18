@@ -19,6 +19,7 @@ void PlannerCore::setMap(const nav_msgs::msg::OccupancyGrid &map,
   occ_threshold_ = occ_threshold;
   unknown_free_  = unknown_as_free;
   use_8_         = use_8_connected;
+  map_frame_     = map_.header.frame_id.empty() ? "map" : map_.header.frame_id;
 
   const auto &q = map_.info.origin.orientation;
   if (std::abs(q.x) > 1e-6 || std::abs(q.y) > 1e-6 || std::abs(q.z) > 1e-6 || std::abs(q.w - 1.0) > 1e-6) {
@@ -49,7 +50,7 @@ std::optional<CellIndex> PlannerCore::worldToMap(double wx, double wy) const
 geometry_msgs::msg::PoseStamped PlannerCore::mapToWorldPose(const CellIndex &c) const
 {
   geometry_msgs::msg::PoseStamped p;
-  p.header.frame_id = "map";
+  p.header.frame_id = map_frame_;
 
   const double res = map_.info.resolution;
   const double ox  = map_.info.origin.position.x;
@@ -120,9 +121,32 @@ std::vector<geometry_msgs::msg::PoseStamped> PlannerCore::reconstructPath(
   }
   std::reverse(cells.begin(), cells.end());
 
+  // Drop intermediate grid cells that stay on the same straight segment.
+  std::vector<CellIndex> simplified;
+  simplified.reserve(cells.size());
+  for (const auto &cell : cells) {
+    if (simplified.size() < 2) {
+      simplified.push_back(cell);
+      continue;
+    }
+
+    const CellIndex &prev = simplified[simplified.size() - 2];
+    const CellIndex &last = simplified.back();
+    const int dx1 = last.x - prev.x;
+    const int dy1 = last.y - prev.y;
+    const int dx2 = cell.x - last.x;
+    const int dy2 = cell.y - last.y;
+
+    if (dx1 * dy2 == dy1 * dx2) {
+      simplified.back() = cell;
+    } else {
+      simplified.push_back(cell);
+    }
+  }
+
   std::vector<geometry_msgs::msg::PoseStamped> path;
-  path.reserve(cells.size());
-  for (const auto &c : cells) path.push_back(mapToWorldPose(c));
+  path.reserve(simplified.size());
+  for (const auto &c : simplified) path.push_back(mapToWorldPose(c));
   return path;
 }
 std::vector<geometry_msgs::msg::PoseStamped> PlannerCore::plan(double sx, double sy,
