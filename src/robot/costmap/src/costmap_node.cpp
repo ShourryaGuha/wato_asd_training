@@ -64,23 +64,29 @@ void CostmapNode::initializeCostmap()
     }
   }
 
-  // RCLCPP_INFO(logger_, "Costmap initialization completed");
 }
 
-// Callback function for lidar data
+// Callbackfor lidar 
 void CostmapNode::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
 {
-  // Step 1: Initialize costmap done in constructor
+  // Reset the local costmap each scan so it represents the current sensor sweep.
+  for (int y = 0; y < costmap_height; ++y)
+  {
+    for (int x = 0; x < costmap_width; ++x)
+    {
+      costmap_2D[y][x] = 0;
+    }
+  }
 
-  // Step 2: Convert LaserScan to grid and mark obstacles
+  // Convert LaserScan to grid and mark obstacles
   for (size_t i = 0; i < scan->ranges.size(); ++i)
   {
     double angle = scan->angle_min + i * scan->angle_increment;
     double range = scan->ranges[i];
     if (range < scan->range_max && range > scan->range_min)
     {
-      // Calculate grid coordinates
-      float x_grid_sensor_frame, y_grid_sensor_frame; // in metres
+      
+      float x_grid_sensor_frame, y_grid_sensor_frame;
       costmap_.convertToGrid(range, angle, x_grid_sensor_frame, y_grid_sensor_frame);
 
       int x_grid = static_cast<int>(x_grid_sensor_frame / costmap_resolution_ + (costmap_width / 2));
@@ -90,10 +96,10 @@ void CostmapNode::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr sca
     }
   }
 
-  // Step 3: Inflate obstacles
+  // Inflate obstacles
   inflateObstacles();
 
-  // Step 4: Publish costmap
+  // Publish costmap
 
   publishCostmap();
 }
@@ -155,7 +161,7 @@ void CostmapNode::publishCostmap()
     }
   }
   costmap_msg_.header.stamp = this->now();
-  costmap_msg_.header.frame_id = "map";
+  costmap_msg_.header.frame_id = "sim_world";
   costmap_pub_->publish(costmap_msg_);
 }
 

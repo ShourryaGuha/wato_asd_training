@@ -56,15 +56,12 @@ void MapMemoryCore::fuseCostmap(const nav_msgs::msg::OccupancyGrid& costmap,
         continue;
       }
 
-      // Cell center in local costmap frame
       const double cx = cox + (static_cast<double>(x) + 0.5) * res;
       const double cy = coy + (static_cast<double>(y) + 0.5) * res;
 
-      // Transform into global "map" frame using robot pose
       const double wx = robot_x + (cx * cY - cy * sY);
       const double wy = robot_y + (cx * sY + cy * cY);
 
-      // Index into global map
       const int gi = static_cast<int>(std::floor((wx - gx0) / gres));
       const int gj = static_cast<int>(std::floor((wy - gy0) / gres));
 
@@ -76,8 +73,10 @@ void MapMemoryCore::fuseCostmap(const nav_msgs::msg::OccupancyGrid& costmap,
       const int gidx = gi + gj * gW;
       int8_t& gval = global_map_.data[gidx];
 
-      // Linear fusion per assignment: overwrite when local is known (0..100)
-      gval = costmap_value;
+      // Keeping global map persistant
+      if (gval < costmap_value) {
+        gval = costmap_value;
+      }
 
       if (costmap_value == 100)      ++occupied_cells_fused;
       else if (costmap_value == 0)   ++free_cells_fused;
